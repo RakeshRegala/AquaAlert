@@ -14,16 +14,130 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      alerts: {
+        Row: {
+          alert_message: string
+          created_at: string
+          id: string
+          location: string
+          severity: Database["public"]["Enums"]["alert_severity"]
+          triggered_by: string
+        }
+        Insert: {
+          alert_message: string
+          created_at?: string
+          id?: string
+          location: string
+          severity?: Database["public"]["Enums"]["alert_severity"]
+          triggered_by: string
+        }
+        Update: {
+          alert_message?: string
+          created_at?: string
+          id?: string
+          location?: string
+          severity?: Database["public"]["Enums"]["alert_severity"]
+          triggered_by?: string
+        }
+        Relationships: []
+      }
+      health_reports: {
+        Row: {
+          created_at: string
+          id: string
+          location: string | null
+          patient_name: string
+          reporter_id: string
+          symptoms: string | null
+          water_source: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          patient_name: string
+          reporter_id: string
+          symptoms?: string | null
+          water_source?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          patient_name?: string
+          reporter_id?: string
+          symptoms?: string | null
+          water_source?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          role: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      water_readings: {
+        Row: {
+          contamination_level: number | null
+          created_at: string
+          id: string
+          location: string
+          ph: number | null
+          reporter_id: string
+          turbidity: number | null
+        }
+        Insert: {
+          contamination_level?: number | null
+          created_at?: string
+          id?: string
+          location: string
+          ph?: number | null
+          reporter_id: string
+          turbidity?: number | null
+        }
+        Update: {
+          contamination_level?: number | null
+          created_at?: string
+          id?: string
+          location?: string
+          ph?: number | null
+          reporter_id?: string
+          turbidity?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
     }
     Enums: {
-      [_ in never]: never
+      alert_severity: "low" | "medium" | "high"
+      user_role: "community" | "asha" | "government"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +264,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      alert_severity: ["low", "medium", "high"],
+      user_role: ["community", "asha", "government"],
+    },
   },
 } as const
