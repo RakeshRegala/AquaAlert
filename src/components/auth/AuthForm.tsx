@@ -11,6 +11,7 @@ const AuthForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [role, setRole] = useState<'community' | 'asha' | 'government'>('community');
   const [loading, setLoading] = useState(false);
 
@@ -28,7 +29,7 @@ const AuthForm = () => {
     e.preventDefault();
     setLoading(true);
     
-    await signUp(email, password, name, role);
+    await signUp(email, password, name, role, phoneNumber);
     setLoading(false);
   };
 
@@ -113,6 +114,19 @@ const AuthForm = () => {
                     required
                   />
                 </div>
+                {role === 'government' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="Your phone number"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="role">Your Role</Label>
                   <Select value={role} onValueChange={(value: 'community' | 'asha' | 'government') => setRole(value)}>

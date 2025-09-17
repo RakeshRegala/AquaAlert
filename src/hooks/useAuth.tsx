@@ -10,7 +10,7 @@ interface AuthContextType {
   userProfile: any | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, name: string, role: 'community' | 'asha' | 'government') => Promise<{ error: any }>;
+  signUp: (email: string, password: string, name: string, role: 'community' | 'asha' | 'government', phoneNumber?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -98,7 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUp = async (email: string, password: string, name: string, role: 'community' | 'asha' | 'government') => {
+  const signUp = async (email: string, password: string, name: string, role: 'community' | 'asha' | 'government', phoneNumber?: string) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
@@ -110,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             name,
             role,
+            phone_number: phoneNumber,
           }
         }
       });
