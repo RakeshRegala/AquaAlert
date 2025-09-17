@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import DocumentUpload from '@/components/DocumentUpload';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Users, Droplets, TrendingUp, MapPin, Calendar } from 'lucide-react';
+import { AlertTriangle, Users, Droplets, TrendingUp, MapPin, Calendar, User, Phone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface HealthReport {
   id: string;
@@ -47,6 +50,7 @@ const GovernmentDashboard = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { userProfile } = useAuth();
 
   useEffect(() => {
     fetchDashboardData();
@@ -165,6 +169,36 @@ const GovernmentDashboard = () => {
   return (
     <DashboardLayout title="Government Dashboard">
       <div className="grid gap-6">
+        {/* Profile Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Government Authority Profile
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Name</Label>
+                <p className="text-lg">{userProfile?.name || 'Not set'}</p>
+              </div>
+              {userProfile?.phone_number && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Phone Number</Label>
+                  <p className="text-lg flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    {userProfile.phone_number}
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Document Verification */}
+        <DocumentUpload />
+
         {/* Summary Stats */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
