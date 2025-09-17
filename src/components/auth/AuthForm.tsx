@@ -6,6 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Upload, File, AlertCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const AuthForm = () => {
   const [email, setEmail] = useState('');
@@ -14,8 +17,11 @@ const AuthForm = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [role, setRole] = useState<'community' | 'asha' | 'government'>('community');
   const [loading, setLoading] = useState(false);
+  const [documents, setDocuments] = useState<File[]>([]);
+  const [uploadingDocs, setUploadingDocs] = useState(false);
 
   const { signIn, signUp } = useAuth();
+  const { toast } = useToast();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,11 +31,72 @@ const AuthForm = () => {
     setLoading(false);
   };
 
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      setDocuments(Array.from(files));
+    }
+  };
+
+  const uploadDocuments = async (userId: string) => {
+    if (documents.length === 0) return;
+
+    setUploadingDocs(true);
+    try {
+      const uploadPromises = documents.map(async (file) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${userId}/${Date.now()}-${file.name}`;
+
+        const { error } = await supabase.storage
+          .from('government-documents')
+          .upload(fileName, file);
+
+        if (error) throw error;
+        return fileName;
+      });
+
+      await Promise.all(uploadPromises);
+      
+      toast({
+        title: "Documents uploaded successfully",
+        description: "Your verification documents have been uploaded.",
+      });
+    } catch (error) {
+      console.error('Error uploading documents:', error);
+      toast({
+        title: "Document upload failed",
+        description: "There was an error uploading your documents.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingDocs(false);
+    }
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (role === 'government' && documents.length === 0) {
+      toast({
+        title: "Documents required",
+        description: "Please upload your verification documents before creating your account.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     
-    await signUp(email, password, name, role, phoneNumber);
+    const { error } = await signUp(email, password, name, role, phoneNumber);
+    
+    if (!error && role === 'government') {
+      // Get the current user after signup to upload documents
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await uploadDocuments(user.id);
+      }
+    }
+    
     setLoading(false);
   };
 
@@ -140,8 +207,53 @@ const AuthForm = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Creating account...' : 'Create Account'}
+                
+                {role === 'government' && (
+                  <div className="space-y-4 p-4 border rounded-lg bg-info/5">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-5 w-5 text-info mt-0.5" />
+                      <div>
+                        <Label className="text-sm font-medium text-info">Document Verification Required</Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Government authorities must upload verification documents during registration.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="documents">Upload Verification Documents *</Label>
+                      <Input
+                        id="documents"
+                        type="file"
+                        multiple
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        onChange={handleDocumentUpload}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Upload: Government ID, Authorization letter, Official certificate, etc.
+                      </p>
+                    </div>
+                    
+                    {documents.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Selected Documents:</Label>
+                        <div className="space-y-1">
+                          {documents.map((file, index) => (
+                            <div key={index} className="flex items-center gap-2 text-sm">
+                              <File className="h-4 w-4" />
+                              <span>{file.name}</span>
+                              <span className="text-muted-foreground">({(file.size / 1024 / 1024).toFixed(1)}MB)</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <Button type="submit" className="w-full" disabled={loading || uploadingDocs}>
+                  {loading ? 'Creating account...' : uploadingDocs ? 'Uploading documents...' : 'Create Account'}
                 </Button>
               </form>
             </TabsContent>

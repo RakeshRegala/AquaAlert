@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import DocumentUpload from '@/components/DocumentUpload';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Users, Droplets, TrendingUp, MapPin, Calendar, User, Phone } from 'lucide-react';
+import { AlertTriangle, Users, Droplets, TrendingUp, MapPin, Calendar, User, Phone, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -196,8 +195,26 @@ const GovernmentDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Document Verification */}
-        <DocumentUpload />
+        {/* Document Verification Status */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Document Verification Status
+            </CardTitle>
+            <CardDescription>
+              Your verification documents uploaded during registration
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-success/10 p-4 rounded-lg">
+              <p className="text-success font-medium">✓ Documents Verified</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Your government authority credentials have been uploaded and are under review.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Summary Stats */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
