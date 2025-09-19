@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,9 +24,83 @@ const AshaDashboard = () => {
   const [turbidity, setTurbidity] = useState('');
   const [contamination, setContamination] = useState('');
   
+  // Dashboard Statistics State
+  const [stats, setStats] = useState({
+    reportsToday: 0,
+    waterTests: 0,
+    patientsVisited: 0,
+    alertsCreated: 0
+  });
+  
   const [loading, setLoading] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Function to get today's date in YYYY-MM-DD format
+  const getToday = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
+
+  // Function to fetch dashboard statistics
+  const fetchStats = async () => {
+    if (!user) return;
+    
+    setStatsLoading(true);
+    try {
+      const today = getToday();
+
+      // Fetch health reports for today
+      const { data: healthReportsToday, error: healthError } = await supabase
+        .from('health_reports')
+        .select('id')
+        .eq('reporter_id', user.id)
+        .gte('created_at', `${today}T00:00:00`)
+        .lt('created_at', `${today}T23:59:59`);
+
+      // Fetch water readings for today
+      const { data: waterReadingsToday, error: waterError } = await supabase
+        .from('water_readings')
+        .select('id')
+        .eq('reporter_id', user.id)
+        .gte('created_at', `${today}T00:00:00`)
+        .lt('created_at', `${today}T23:59:59`);
+
+      // Fetch alerts created by this user today
+      const { data: alertsToday, error: alertsError } = await supabase
+        .from('alerts')
+        .select('id')
+        .eq('triggered_by', user.id)
+        .gte('created_at', `${today}T00:00:00`)
+        .lt('created_at', `${today}T23:59:59`);
+
+      if (healthError || waterError || alertsError) {
+        console.error('Error fetching stats:', { healthError, waterError, alertsError });
+      }
+
+      setStats({
+        reportsToday: healthReportsToday?.length || 0,
+        waterTests: waterReadingsToday?.length || 0,
+        patientsVisited: healthReportsToday?.length || 0, // Same as reports for now
+        alertsCreated: alertsToday?.length || 0
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load dashboard statistics.",
+        variant: "destructive",
+      });
+    }
+    setStatsLoading(false);
+  };
+
+  // Load stats on component mount
+  useEffect(() => {
+    fetchStats();
+  }, [user]);
 
   const handleHealthReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +130,9 @@ const AshaDashboard = () => {
       setSymptoms('');
       setLocation('');
       setWaterSource('');
+      
+      // Refresh stats
+      fetchStats();
     } catch (error) {
       toast({
         title: "Error",
@@ -121,6 +198,9 @@ const AshaDashboard = () => {
       setPh('');
       setTurbidity('');
       setContamination('');
+      
+      // Refresh stats
+      fetchStats();
     } catch (error) {
       toast({
         title: "Error",
@@ -142,9 +222,11 @@ const AshaDashboard = () => {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12</div>
+              <div className="text-2xl font-bold">
+                {statsLoading ? '...' : stats.reportsToday}
+              </div>
               <p className="text-xs text-muted-foreground">
-                +2 from yesterday
+                {statsLoading ? 'Loading...' : 'Health reports submitted today'}
               </p>
             </CardContent>
           </Card>
@@ -155,9 +237,11 @@ const AshaDashboard = () => {
               <Beaker className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">8</div>
+              <div className="text-2xl font-bold">
+                {statsLoading ? '...' : stats.waterTests}
+              </div>
               <p className="text-xs text-muted-foreground">
-                +1 from yesterday
+                {statsLoading ? 'Loading...' : 'Water quality tests conducted today'}
               </p>
             </CardContent>
           </Card>
@@ -168,9 +252,11 @@ const AshaDashboard = () => {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">24</div>
+              <div className="text-2xl font-bold">
+                {statsLoading ? '...' : stats.patientsVisited}
+              </div>
               <p className="text-xs text-muted-foreground">
-                +5 from yesterday
+                {statsLoading ? 'Loading...' : 'Patients visited today'}
               </p>
             </CardContent>
           </Card>
@@ -181,9 +267,13 @@ const AshaDashboard = () => {
               <AlertTriangle className="h-4 w-4 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-warning">3</div>
+              <div className="text-2xl font-bold text-warning">
+                {statsLoading ? '...' : stats.alertsCreated}
+              </div>
               <p className="text-xs text-muted-foreground">
-                Requires attention
+                {statsLoading ? 'Loading...' : 
+                  stats.alertsCreated > 0 ? 'Alerts created today' : 'No alerts today'
+                }
               </p>
             </CardContent>
           </Card>

@@ -17,6 +17,7 @@ interface HealthReport {
   created_at: string;
   profiles?: {
     name: string;
+    role: 'community' | 'asha' | 'government';
   } | null;
 }
 
@@ -29,6 +30,7 @@ interface WaterReading {
   created_at: string;
   profiles?: {
     name: string;
+    role: 'community' | 'asha' | 'government';
   } | null;
 }
 
@@ -81,7 +83,13 @@ const GovernmentDashboard = () => {
     try {
       const { data, error } = await supabase
         .from('health_reports')
-        .select('*')
+        .select(`
+          *,
+          profiles!health_reports_reporter_id_fkey (
+            name,
+            role
+          )
+        `)
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -96,7 +104,13 @@ const GovernmentDashboard = () => {
     try {
       const { data, error } = await supabase
         .from('water_readings')
-        .select('*')
+        .select(`
+          *,
+          profiles!water_readings_reporter_id_fkey (
+            name,
+            role
+          )
+        `)
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -146,6 +160,19 @@ const GovernmentDashboard = () => {
       return { status: 'Dangerous', color: 'text-destructive' };
     } else {
       return { status: 'Caution', color: 'text-warning' };
+    }
+  };
+
+  const getReporterType = (role: string | undefined) => {
+    switch (role) {
+      case 'asha':
+        return 'ASHA Worker';
+      case 'community':
+        return 'Community Member';
+      case 'government':
+        return 'Government Official';
+      default:
+        return 'Unknown';
     }
   };
 
@@ -327,7 +354,7 @@ const GovernmentDashboard = () => {
           <Card>
             <CardHeader>
               <CardTitle>Recent Health Reports</CardTitle>
-              <CardDescription>Latest patient reports from ASHA workers</CardDescription>
+              <CardDescription>Latest patient reports from ASHA workers and community members</CardDescription>
             </CardHeader>
             <CardContent>
               {healthReports.length === 0 ? (
@@ -345,7 +372,7 @@ const GovernmentDashboard = () => {
                       <p className="text-sm text-muted-foreground mb-1">{report.location}</p>
                       <p className="text-sm">{report.symptoms.substring(0, 100)}...</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        By: ASHA Worker
+                        By: {getReporterType(report.profiles?.role)}
                       </p>
                     </div>
                   ))}
@@ -405,7 +432,7 @@ const GovernmentDashboard = () => {
                           </div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(reading.created_at).toLocaleDateString()} • ASHA Worker
+                          {new Date(reading.created_at).toLocaleDateString()} • {getReporterType(reading.profiles?.role)}
                         </p>
                       </div>
                     );
