@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Users, Droplets, TrendingUp, MapPin, Calendar, User, Phone, Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, Users, Droplets, TrendingUp, MapPin, Calendar, User, Phone, Upload, Mail, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useEmailNotifications } from '@/hooks/useEmailNotifications';
 
 interface HealthReport {
   id: string;
@@ -50,8 +52,12 @@ const GovernmentDashboard = () => {
   const [waterReadings, setWaterReadings] = useState<WaterReading[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showEmailSettings, setShowEmailSettings] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const previousAlertsRef = useRef<Alert[]>([]);
   const { toast } = useToast();
   const { userProfile } = useAuth();
+  const { sendAlertNotification, sendTestEmail, isEmailConfigured, isSending } = useEmailNotifications();
 
   useEffect(() => {
     fetchDashboardData();
@@ -83,18 +89,29 @@ const GovernmentDashboard = () => {
     try {
       const { data, error } = await supabase
         .from('health_reports')
-        .select(`
-          *,
-          profiles!health_reports_reporter_id_fkey (
-            name,
-            role
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(10);
 
       if (error) throw error;
-      setHealthReports(data || []);
+      
+      // Fetch profiles separately and merge the data
+      const healthReportsWithProfiles = await Promise.all(
+        (data || []).map(async (report) => {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('name, role')
+            .eq('user_id', report.reporter_id)
+            .single();
+          
+          return {
+            ...report,
+            profiles: profileData
+          };
+        })
+      );
+      
+      setHealthReports(healthReportsWithProfiles as HealthReport[]);
     } catch (error) {
       console.error('Error fetching health reports:', error);
     }
@@ -104,18 +121,29 @@ const GovernmentDashboard = () => {
     try {
       const { data, error } = await supabase
         .from('water_readings')
-        .select(`
-          *,
-          profiles!water_readings_reporter_id_fkey (
-            name,
-            role
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(10);
 
       if (error) throw error;
-      setWaterReadings(data || []);
+      
+      // Fetch profiles separately and merge the data
+      const waterReadingsWithProfiles = await Promise.all(
+        (data || []).map(async (reading) => {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('name, role')
+            .eq('user_id', reading.reporter_id)
+            .single();
+          
+          return {
+            ...reading,
+            profiles: profileData
+          };
+        })
+      );
+      
+      setWaterReadings(waterReadingsWithProfiles as WaterReading[]);
     } catch (error) {
       console.error('Error fetching water readings:', error);
     }
@@ -130,7 +158,30 @@ const GovernmentDashboard = () => {
         .limit(10);
 
       if (error) throw error;
-      setAlerts(data || []);
+      const newAlerts = data || [];
+      
+      // Check for new alerts and send email notifications
+      if (previousAlertsRef.current.length > 0 && newAlerts.length > 0) {
+        const newAlertIds = new Set(newAlerts.map(alert => alert.id));
+        const previousAlertIds = new Set(previousAlertsRef.current.map(alert => alert.id));
+        
+        // Find alerts that are new (not in previous alerts)
+        const newlyCreatedAlerts = newAlerts.filter(alert => !previousAlertIds.has(alert.id));
+        
+        // Send email notifications for new alerts
+        for (const alert of newlyCreatedAlerts) {
+          await sendAlertNotification({
+            alertId: alert.id,
+            location: alert.location,
+            message: alert.alert_message,
+            severity: alert.severity,
+            createdAt: alert.created_at,
+          });
+        }
+      }
+      
+      setAlerts(newAlerts);
+      previousAlertsRef.current = newAlerts;
     } catch (error) {
       console.error('Error fetching alerts:', error);
     }
@@ -239,6 +290,92 @@ const GovernmentDashboard = () => {
               <p className="text-sm text-muted-foreground mt-1">
                 Your government authority credentials have been uploaded and are under review.
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Email Notification Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Email Notifications
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowEmailSettings(!showEmailSettings)}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </Button>
+            </CardTitle>
+            <CardDescription>
+              Configure email notifications for health alerts
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Alert Notifications</p>
+                  <p className="text-sm text-muted-foreground">
+                    {isEmailConfigured 
+                      ? "Email notifications are enabled and will be sent automatically when new alerts are created."
+                      : "Email notifications are disabled. Configure Gmail credentials to enable notifications."
+                    }
+                  </p>
+                </div>
+                <Badge variant={isEmailConfigured ? "default" : "secondary"}>
+                  {isEmailConfigured ? "Enabled" : "Disabled"}
+                </Badge>
+              </div>
+
+              {showEmailSettings && (
+                <div className="border-t pt-4 space-y-4">
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-2">Configuration Required</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      To enable email notifications, set the following environment variables:
+                    </p>
+                    <div className="space-y-2 text-sm font-mono bg-background p-3 rounded border">
+                      <div>VITE_GMAIL_USER=your-email@gmail.com</div>
+                      <div>VITE_GMAIL_APP_PASSWORD=your-app-password</div>
+                      <div>VITE_GOVERNMENT_EMAIL=government@example.com</div>
+                      <div>VITE_GOVERNMENT_NAME=Government Authority</div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Note: Use Gmail App Passwords, not your regular password. Generate one in your Google Account settings.
+                    </p>
+                  </div>
+
+                  {isEmailConfigured && (
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="test-email">Test Email Address</Label>
+                        <div className="flex gap-2 mt-1">
+                          <input
+                            id="test-email"
+                            type="email"
+                            value={testEmail}
+                            onChange={(e) => setTestEmail(e.target.value)}
+                            placeholder="Enter email to test notifications"
+                            className="flex-1 px-3 py-2 border rounded-md text-sm"
+                          />
+                          <Button
+                            onClick={() => testEmail && sendTestEmail(testEmail)}
+                            disabled={!testEmail || isSending}
+                            size="sm"
+                          >
+                            {isSending ? "Sending..." : "Send Test"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
