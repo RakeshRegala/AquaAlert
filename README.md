@@ -131,7 +131,7 @@ Before you begin, ensure you have the following installed:
 
 bash
 # Clone the repository
-git clone https://github.com/yourusername/AquaAlert.git
+git clone https://github.com/RakeshRegala/AquaAlert.git
 
 # Navigate to the project directory
 cd AquaAlert
@@ -873,5 +873,6 @@ This project is licensed under the *MIT License* - see the [LICENSE](LICENSE) fi
 5. Configure .env files
 6. Start servers: npm start (server) and npm run dev (frontend)
 7. Test at http://localhost:8080
+
 
 *AquaAlert* - Empowering communities with smart health monitoring technology. 🏥💧📊
