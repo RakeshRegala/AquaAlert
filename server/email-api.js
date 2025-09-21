@@ -1,77 +1,41 @@
-// Note: nodemailer is designed for Node.js and may not work in browser environments
-// For production, consider using a server-side API endpoint for email functionality
-// import nodemailer from 'nodemailer';
+const express = require('express');
+const nodemailer = require('nodemailer');
+const cors = require('cors');
+require('dotenv').config();
 
-interface EmailConfig {
-  host: string;
-  port: number;
-  secure: boolean;
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Gmail transporter configuration
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
   auth: {
-    user: string;
-    pass: string;
-  };
-}
-
-interface AlertEmailData {
-  alertId: string;
-  location: string;
-  message: string;
-  severity: 'low' | 'medium' | 'high';
-  createdAt: string;
-  governmentEmail: string;
-  governmentName: string;
-}
-
-class EmailService {
-  private transporter: any = null;
-  private config: EmailConfig | null = null;
-
-  constructor() {
-    this.initializeTransporter();
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD
   }
+});
 
-  private initializeTransporter() {
-    // Check if server-side email API is available
-    this.transporter = {
-      sendMail: async (options: any) => {
-        console.log('Email service initialized - using server-side API');
-        return { messageId: 'server-api' };
-      }
-    };
-  }
+// Email template generator
+function generateAlertEmailHTML(data) {
+  const severityColor = {
+    'high': '#dc2626',
+    'medium': '#d97706', 
+    'low': '#2563eb'
+  }[data.severity] || '#6b7280';
 
-  private getSeverityColor(severity: string): string {
-    switch (severity) {
-      case 'high':
-        return '#dc2626'; // red-600
-      case 'medium':
-        return '#d97706'; // amber-600
-      case 'low':
-        return '#2563eb'; // blue-600
-      default:
-        return '#6b7280'; // gray-500
-    }
-  }
+  const severityIcon = {
+    'high': '🚨',
+    'medium': '⚠️',
+    'low': 'ℹ️'
+  }[data.severity] || '📢';
 
-  private getSeverityIcon(severity: string): string {
-    switch (severity) {
-      case 'high':
-        return '🚨';
-      case 'medium':
-        return '⚠️';
-      case 'low':
-        return 'ℹ️';
-      default:
-        return '📢';
-    }
-  }
+  const formattedDate = new Date(data.createdAt).toLocaleString();
 
-  private generateAlertEmailHTML(data: AlertEmailData): string {
-    const severityColor = this.getSeverityColor(data.severity);
-    const severityIcon = this.getSeverityIcon(data.severity);
-    const formattedDate = new Date(data.createdAt).toLocaleString();
-
-    return `
+  return `
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -177,7 +141,7 @@ class EmailService {
 
                 <p>Please log into the Health Sense Community Watch dashboard to review the full details and take appropriate action.</p>
                 
-                <a href="${window.location.origin}/government-dashboard" class="dashboard-link">
+                <a href="http://localhost:8080/government-dashboard" class="dashboard-link">
                     View Dashboard
                 </a>
             </div>
@@ -188,59 +152,112 @@ class EmailService {
         </div>
     </body>
     </html>
-    `;
-  }
-
-  async sendAlertNotification(data: AlertEmailData): Promise<boolean> {
-    try {
-      const response = await fetch('http://localhost:3001/api/send-alert', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log('Alert email sent successfully:', result.messageId);
-        return true;
-      } else {
-        console.error('Failed to send alert email:', result.error);
-        return false;
-      }
-    } catch (error) {
-      console.error('Failed to send alert email:', error);
-      return false;
-    }
-  }
-
-  async sendTestEmail(to: string): Promise<boolean> {
-    try {
-      const response = await fetch('http://localhost:3001/api/send-test-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ to }),
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log('Test email sent successfully:', result.messageId);
-        return true;
-      } else {
-        console.error('Failed to send test email:', result.error);
-        return false;
-      }
-    } catch (error) {
-      console.error('Failed to send test email:', error);
-      return false;
-    }
-  }
+  `;
 }
 
-export const emailService = new EmailService();
-export type { AlertEmailData };
+// API endpoint to send alert notifications
+app.post('/api/send-alert', async (req, res) => {
+  try {
+    const { alertId, location, message, severity, createdAt, governmentEmail, governmentName } = req.body;
+
+    if (!governmentEmail || !governmentName) {
+      return res.status(400).json({ error: 'Government email and name are required' });
+    }
+
+    const mailOptions = {
+      from: `"Health Sense Community Watch" <${process.env.GMAIL_USER}>`,
+      to: governmentEmail,
+      subject: `🚨 Health Alert - ${severity.toUpperCase()} Priority - ${location}`,
+      html: generateAlertEmailHTML({
+        alertId,
+        location,
+        message,
+        severity,
+        createdAt,
+        governmentName
+      }),
+      text: `
+Health Alert Notification
+
+Severity: ${severity.toUpperCase()}
+Location: ${location}
+Message: ${message}
+Alert ID: ${alertId}
+Generated: ${new Date(createdAt).toLocaleString()}
+
+Please log into the dashboard to review and take action.
+      `.trim(),
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Alert email sent successfully:', result.messageId);
+    
+    res.json({ 
+      success: true, 
+      messageId: result.messageId,
+      message: 'Alert notification sent successfully'
+    });
+
+  } catch (error) {
+    console.error('Failed to send alert email:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to send email notification',
+      details: error.message
+    });
+  }
+});
+
+// API endpoint to send test emails
+app.post('/api/send-test-email', async (req, res) => {
+  try {
+    const { to } = req.body;
+
+    if (!to) {
+      return res.status(400).json({ error: 'Email address is required' });
+    }
+
+    const mailOptions = {
+      from: `"Health Sense Community Watch" <${process.env.GMAIL_USER}>`,
+      to,
+      subject: 'Test Email - Health Sense Community Watch',
+      html: `
+        <h2>Test Email</h2>
+        <p>This is a test email from the Health Sense Community Watch system.</p>
+        <p>If you received this email, the notification system is working correctly.</p>
+        <p>Sent at: ${new Date().toLocaleString()}</p>
+      `,
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Test email sent successfully:', result.messageId);
+    
+    res.json({ 
+      success: true, 
+      messageId: result.messageId,
+      message: 'Test email sent successfully'
+    });
+
+  } catch (error) {
+    console.error('Failed to send test email:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to send test email',
+      details: error.message
+    });
+  }
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Email API is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Email API server running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/api/health`);
+});

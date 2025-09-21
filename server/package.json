@@ -1,0 +1,28 @@
+{
+  "name": "health-sense-email-api",
+  "version": "1.0.0",
+  "description": "Email API server for Health Sense Community Watch",
+  "main": "email-api.js",
+  "scripts": {
+    "start": "node email-api.js",
+    "dev": "nodemon email-api.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "nodemailer": "^6.9.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "email",
+    "api",
+    "health",
+    "notifications"
+  ],
+  "author": "Rakesh",
+  "license": "MIT"
+}

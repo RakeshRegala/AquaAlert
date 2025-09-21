@@ -13,10 +13,7 @@ export const useEmailNotifications = (): UseEmailNotificationsReturn => {
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
 
-  const isEmailConfigured = !!(
-    import.meta.env.VITE_GMAIL_USER && 
-    import.meta.env.VITE_GMAIL_APP_PASSWORD
-  );
+  const isEmailConfigured = true; // Server-side API handles email configuration
 
   const sendAlertNotification = useCallback(async (data: Omit<AlertEmailData, 'governmentEmail' | 'governmentName'>) => {
     if (!isEmailConfigured) {

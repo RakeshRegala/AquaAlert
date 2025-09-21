@@ -227,6 +227,42 @@ const GovernmentDashboard = () => {
     }
   };
 
+  const createTestAlert = async () => {
+    if (!userProfile) return;
+    
+    try {
+      const { error } = await supabase
+        .from('alerts')
+        .insert({
+          triggered_by: userProfile.user_id,
+          location: 'Test Location - Government Dashboard',
+          alert_message: 'This is a test alert created from the Government Dashboard to verify real-time email notifications. If you receive this email, the system is working correctly!',
+          severity: 'high'
+        });
+
+      if (error) {
+        console.error('Error creating test alert:', error);
+        toast({
+          title: "Error",
+          description: "Failed to create test alert. Check console for details.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Test Alert Created",
+          description: "Test alert created successfully. Check your Gmail inbox for the notification!",
+        });
+      }
+    } catch (error) {
+      console.error('Error creating test alert:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create test alert.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout title="Government Dashboard">
@@ -321,10 +357,7 @@ const GovernmentDashboard = () => {
                 <div>
                   <p className="font-medium">Alert Notifications</p>
                   <p className="text-sm text-muted-foreground">
-                    {isEmailConfigured 
-                      ? "Email notifications are enabled and will be sent automatically when new alerts are created."
-                      : "Email notifications are disabled. Configure Gmail credentials to enable notifications."
-                    }
+                    Email notifications are enabled and will be sent automatically when new alerts are created via the server-side API.
                   </p>
                 </div>
                 <Badge variant={isEmailConfigured ? "default" : "secondary"}>
@@ -334,20 +367,8 @@ const GovernmentDashboard = () => {
 
               {showEmailSettings && (
                 <div className="border-t pt-4 space-y-4">
-                  <div className="bg-muted/50 p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">Configuration Required</h4>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      To enable email notifications, set the following environment variables:
-                    </p>
-                    <div className="space-y-2 text-sm font-mono bg-background p-3 rounded border">
-                      <div>VITE_GMAIL_USER=your-email@gmail.com</div>
-                      <div>VITE_GMAIL_APP_PASSWORD=your-app-password</div>
-                      <div>VITE_GOVERNMENT_EMAIL=government@example.com</div>
-                      <div>VITE_GOVERNMENT_NAME=Government Authority</div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Note: Use Gmail App Passwords, not your regular password. Generate one in your Google Account settings.
-                    </p>
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    
                   </div>
 
                   {isEmailConfigured && (
@@ -371,6 +392,21 @@ const GovernmentDashboard = () => {
                             {isSending ? "Sending..." : "Send Test"}
                           </Button>
                         </div>
+                      </div>
+                      
+                      <div className="border-t pt-3">
+                        <Label>Create Test Alert</Label>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Create a test alert to verify real-time email notifications
+                        </p>
+                        <Button
+                          onClick={createTestAlert}
+                          disabled={isSending}
+                          variant="outline"
+                          size="sm"
+                        >
+                          {isSending ? "Creating..." : "Create Test Alert"}
+                        </Button>
                       </div>
                     </div>
                   )}
